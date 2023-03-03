@@ -1,16 +1,3 @@
-package edu.pitt.dbmi.i2b2.database;
-
-import edu.pitt.dbmi.i2b2.database.service.CrcDBService;
-import edu.pitt.dbmi.i2b2.database.service.MetadataDBService;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.sql.SQLException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
 /*
  * Copyright (C) 2023 University of Pittsburgh.
  *
@@ -29,6 +16,19 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA 02110-1301  USA
  */
+package edu.pitt.dbmi.i2b2.database;
+
+import edu.pitt.dbmi.i2b2.database.service.CrcDBService;
+import edu.pitt.dbmi.i2b2.database.service.MetadataDBService;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.SQLException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
 /**
  *
  * Mar 1, 2023 3:24:46 PM

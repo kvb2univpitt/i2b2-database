@@ -31,10 +31,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -56,9 +57,6 @@ public abstract class AbstractDBService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractDBService.class);
 
     protected static final int DEFAULT_BATCH_SIZE = 10000;
-
-    protected static final DateFormat ONTOLOGY_DATE_FORMATTER = new SimpleDateFormat("dd-MMM-yy");
-    protected static final DateFormat SHAREPHE_DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.000");
 
     protected final FileSysService fileSysService;
 
@@ -121,7 +119,7 @@ public abstract class AbstractDBService {
         return data;
     }
 
-    protected void deleteFromTableByColumnValue(DataSource dataSource, String table, String columnName, String columnValue, int columnType) throws SQLException, IOException {
+    protected void deleteFromTableByColumnValue(DataSource dataSource, String table, String columnName, String columnValue, int columnType, DateFormat dateFormat) throws SQLException, IOException {
         try (Connection conn = dataSource.getConnection()) {
             int[] columnTypes = {columnType};
             String[] values = {columnValue};
@@ -129,7 +127,7 @@ public abstract class AbstractDBService {
             String sql = createDeletePreparedStatement(conn.getSchema(), table.toLowerCase(), columnName);
             PreparedStatement stmt = conn.prepareStatement(sql);
             try {
-                setColumns(stmt, columnTypes, values);
+                setColumns(stmt, columnTypes, values, dateFormat);
                 stmt.execute();
             } catch (Exception exception) {
                 LOGGER.error("Failed to delete from table by column value.", exception);
@@ -138,7 +136,7 @@ public abstract class AbstractDBService {
         }
     }
 
-    protected void insertIntoTable(DataSource dataSource, String table, Path file) throws SQLException, IOException {
+    protected void insertIntoTable(DataSource dataSource, String table, Path file, DateFormat dateFormat) throws SQLException, IOException {
         try (Connection conn = dataSource.getConnection()) {
             // create prepared statement
             String sql = createInsertPreparedStatement(conn.getSchema(), table.toLowerCase(), fileSysService.getHeaders(file));
@@ -153,7 +151,7 @@ public abstract class AbstractDBService {
                     .map(Delimiters.TAB::split)
                     .forEach(values -> {
                         try {
-                            setColumns(stmt, columnTypes, values);
+                            setColumns(stmt, columnTypes, values, dateFormat);
 
                             // add null columns not provided
                             if (values.length < columnTypes.length) {
@@ -170,7 +168,7 @@ public abstract class AbstractDBService {
         }
     }
 
-    protected void batchInsertIntoTable(DataSource dataSource, String table, Path file, int batchSize) throws SQLException, IOException {
+    protected void batchInsertIntoTable(DataSource dataSource, String table, Path file, int batchSize, DateFormat dateFormat) throws SQLException, IOException {
         try (Connection conn = dataSource.getConnection()) {
             // create prepared statement
             String sql = createInsertPreparedStatement(conn.getSchema(), table.toLowerCase(), fileSysService.getHeaders(file));
@@ -179,6 +177,7 @@ public abstract class AbstractDBService {
             // get columnTypes
             int[] columnTypes = getColumnTypes(stmt.getParameterMetaData());
 
+            int recordCounts = 0;
             int count = 0;
             try (BufferedReader reader = Files.newBufferedReader(file)) {
                 // skip header
@@ -192,7 +191,7 @@ public abstract class AbstractDBService {
 
                     String[] values = Delimiters.TAB.split(line);
                     try {
-                        setColumns(stmt, columnTypes, values);
+                        setColumns(stmt, columnTypes, values, dateFormat);
 
                         // add null columns not provided
                         if (values.length < columnTypes.length) {
@@ -210,7 +209,11 @@ public abstract class AbstractDBService {
                     if (count == batchSize) {
                         stmt.executeBatch();
                         stmt.clearBatch();
+
+                        recordCounts += count;
                         count = 0;
+
+                        System.out.printf("Number of records inserted: %,d%n", recordCounts);
                     }
                 }
             }
@@ -219,11 +222,13 @@ public abstract class AbstractDBService {
                 stmt.executeBatch();
                 stmt.clearBatch();
                 count = 0;
+
+                System.out.printf("Number of records inserted: %,d%n", recordCounts);
             }
         }
     }
 
-    protected void setColumns(PreparedStatement stmt, int[] columnTypes, String[] values) throws SQLException, ParseException, NumberFormatException {
+    protected void setColumns(PreparedStatement stmt, int[] columnTypes, String[] values, DateFormat dateFormat) throws SQLException, ParseException, NumberFormatException {
         for (int i = 0; i < values.length; i++) {
             int columnIndex = i + 1;
             String value = values[i].trim();
@@ -260,9 +265,13 @@ public abstract class AbstractDBService {
                         stmt.setBigDecimal(columnIndex, new BigDecimal(value));
                         break;
                     case Types.DATE:
+                        stmt.setDate(columnIndex, new Date(dateFormat.parse(value).getTime()));
+                        break;
                     case Types.TIME:
+                        stmt.setTime(columnIndex, new Time(dateFormat.parse(value).getTime()));
+                        break;
                     case Types.TIMESTAMP:
-                        stmt.setDate(columnIndex, new Date(SHAREPHE_DATE_FORMATTER.parse(value).getTime()));
+                        stmt.setTimestamp(columnIndex, new Timestamp(dateFormat.parse(value).getTime()));
                         break;
                     case Types.BIT:
                         stmt.setBoolean(columnIndex, value.equals("1"));
@@ -298,12 +307,8 @@ public abstract class AbstractDBService {
     }
 
     protected String createInsertPreparedStatement(String schema, String tableName, List<String> columnNames) {
-        String columns = columnNames.stream()
-                .map(String::toLowerCase)
-                .collect(Collectors.joining(","));
-        String placeholder = IntStream.range(0, columnNames.size())
-                .mapToObj(e -> "?")
-                .collect(Collectors.joining(","));
+        String columns = columnNames.stream().collect(Collectors.joining(","));
+        String placeholder = IntStream.range(0, columnNames.size()).mapToObj(e -> "?").collect(Collectors.joining(","));
 
         return String.format("INSERT INTO %s.%s (%s) VALUES (%s)", schema, tableName, columns, placeholder);
     }

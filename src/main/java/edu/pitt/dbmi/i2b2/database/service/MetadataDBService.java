@@ -18,6 +18,7 @@
  */
 package edu.pitt.dbmi.i2b2.database.service;
 
+import edu.pitt.dbmi.i2b2.database.util.DateFormatters;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,7 +56,12 @@ public class MetadataDBService extends AbstractDBService {
             try {
                 createMetadataTable(tableName);
                 for (Path metadataFile : metadataFiles) {
-                    batchInsertIntoTable(metadataJdbcTemplate.getDataSource(), tableName, metadataFile, DEFAULT_BATCH_SIZE);
+                    batchInsertIntoTable(
+                            metadataJdbcTemplate.getDataSource(),
+                            tableName,
+                            metadataFile,
+                            DEFAULT_BATCH_SIZE,
+                            DateFormatters.METADATA_DATE_FORMATTER);
                 }
                 createMetadataTableIndices(tableName.toLowerCase(), tableName);
             } catch (IOException | SQLException exception) {
