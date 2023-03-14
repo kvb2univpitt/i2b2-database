@@ -19,6 +19,7 @@
 package edu.pitt.dbmi.i2b2.database;
 
 import edu.pitt.dbmi.i2b2.database.service.CrcDBService;
+import edu.pitt.dbmi.i2b2.database.service.FileSysService;
 import edu.pitt.dbmi.i2b2.database.service.MetadataDBService;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -44,18 +45,35 @@ public class I2b2DatabaseApplication implements CommandLineRunner {
     @Autowired
     private CrcDBService crcDBService;
 
+    @Autowired
+    private FileSysService fileSysService;
+
     @Override
     public void run(String... args) throws Exception {
 //        insertObservationFacts();
 //        createMetadatTableForSharephe();
+//        mergeMetadatFiles();
+    }
+
+    private void mergeMetadatFiles() {
+        System.out.println("================================================================================");
+        System.out.println("Merge Metadata Files");
+        System.out.println("--------------------------------------------------------------------------------");
+        Path metadataFileFolder = Paths.get("data", "metadata");
+        fileSysService.mergeMetadataFiles(metadataFileFolder);
+        System.out.println("================================================================================");
     }
 
     private void createMetadatTableForSharephe() {
         System.out.println("================================================================================");
         System.out.println("Create Sharephe Metadata Table");
         System.out.println("--------------------------------------------------------------------------------");
-        Path metadataFileFolder = Paths.get("data", "metadata");
-        metadataDBService.createSharepheMetadataTable(metadataFileFolder);
+        Path metadataDirectory = Paths.get("data", "metadata");
+        try {
+            metadataDBService.createSharepheMetadataTables(metadataDirectory);
+        } catch (Exception exception) {
+            exception.printStackTrace(System.err);
+        }
         System.out.println("================================================================================");
     }
 

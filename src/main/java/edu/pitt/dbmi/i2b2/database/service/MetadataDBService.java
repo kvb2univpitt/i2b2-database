@@ -18,15 +18,12 @@
  */
 package edu.pitt.dbmi.i2b2.database.service;
 
+import edu.pitt.dbmi.i2b2.database.Delimiters;
 import edu.pitt.dbmi.i2b2.database.util.DateFormatters;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -49,70 +46,41 @@ public class MetadataDBService extends AbstractDBService {
         this.metadataJdbcTemplate = metadataJdbcTemplate;
     }
 
-    public void createSharepheMetadataTable(Path metadataDir) {
-        List<Path> metadataFiles = getMetadataFiles(metadataDir);
-        if (!metadataFiles.isEmpty()) {
-            String tableName = "sharephe_metadata";
-            try {
-                createMetadataTable(tableName);
-                for (Path metadataFile : metadataFiles) {
-                    batchInsertIntoTable(
-                            metadataJdbcTemplate.getDataSource(),
-                            tableName,
-                            metadataFile,
-                            DEFAULT_BATCH_SIZE,
-                            DateFormatters.METADATA_DATE_FORMATTER);
-                }
-                createMetadataTableIndices(tableName.toLowerCase(), tableName);
-            } catch (IOException | SQLException exception) {
-                exception.printStackTrace(System.err);
-            }
+    public void createSharepheMetadataTables(Path metadataDirectory) throws SQLException, IOException {
+        String tableName = "sharephe_metadata";
+        createOntologyTable(metadataJdbcTemplate, tableName);
+        for (Path metadataFile : fileSysService.getMetadataFiles(metadataDirectory)) {
+            insertIntoOntologyTable(metadataJdbcTemplate, tableName, metadataFile);
         }
+        createOntologyTableIndices(metadataJdbcTemplate, "shp", tableName);
     }
 
-    private List<Path> getMetadataFiles(Path metadataFileDir) {
-        try {
-            return Files.list(metadataFileDir)
-                    .filter(Files::isRegularFile)
-                    .collect(Collectors.toList());
-        } catch (IOException exception) {
-            exception.printStackTrace(System.err);
-        }
-
-        return Collections.EMPTY_LIST;
+    private void createOntologyTableIndices(JdbcTemplate jdbcTemplate, String indexNameprefix, String tableName) throws SQLException, IOException {
+        createTableIndexes(jdbcTemplate, indexNameprefix, tableName, Paths.get("metadata", "metadata_table_indices.sql"));
     }
 
-    private void createMetadataTableIndices(String indexSubfix, String tableName) throws SQLException, IOException {
-        Path metadataIndexFile = Paths.get("metadata", "metadata_table_indices.sql");
-        List<String> queries = fileSysService.getResourceFileContentByLines(metadataIndexFile);
-        for (String query : queries) {
-            query = query
-                    .replaceAll(";", "")
-                    .replaceAll("i2b2", indexSubfix)
-                    .replaceAll("I2B2", tableName)
-                    .trim();
-            metadataJdbcTemplate.execute(query);
-        }
+    private void insertIntoOntologyTable(JdbcTemplate jdbcTemplate, String tableName, Path file) throws SQLException, IOException {
+        batchInsertMetadata(jdbcTemplate, tableName, DEFAULT_BATCH_SIZE, file, Delimiters.TAB, DateFormatters.METADATA_DATE_FORMATTER);
     }
 
-    private void createMetadataTable(String tableName) throws SQLException, IOException {
-        switch (getDatabaseVendor(metadataJdbcTemplate.getDataSource()).toLowerCase()) {
-            case "postgresql":
-                createMetadataTableFromFile(tableName, Paths.get("metadata", "postgresql", "metadata_table.sql"));
-                break;
-            case "oracle":
-                createMetadataTableFromFile(tableName, Paths.get("metadata", "oracle", "metadata_table.sql"));
-                break;
-            case "microsoft sql server":
-                createMetadataTableFromFile(tableName, Paths.get("metadata", "sqlserver", "metadata_table.sql"));
-                break;
-        }
-    }
-
-    protected void createMetadataTableFromFile(String tableName, Path file) throws SQLException, IOException {
+    protected void createMetadataTable(JdbcTemplate jdbcTemplate, String tableName, Path file) throws SQLException, IOException {
         String query = fileSysService.getResourceFileContents(file);
 
-        metadataJdbcTemplate.execute(query.replaceAll("I2B2", tableName));
+        jdbcTemplate.execute(query.replaceAll("I2B2", tableName));
+    }
+
+    private void createOntologyTable(JdbcTemplate jdbcTemplate, String tableName) throws SQLException, IOException {
+        switch (getDatabaseVendor(jdbcTemplate)) {
+            case "PostgreSQL":
+                createMetadataTable(jdbcTemplate, tableName, Paths.get("metadata", "postgresql", "metadata_table.sql"));
+                break;
+            case "Oracle":
+                createMetadataTable(jdbcTemplate, tableName, Paths.get("metadata", "oracle", "metadata_table.sql"));
+                break;
+            case "Microsoft SQL Server":
+                createMetadataTable(jdbcTemplate, tableName, Paths.get("metadata", "sqlserver", "metadata_table.sql"));
+                break;
+        }
     }
 
 }

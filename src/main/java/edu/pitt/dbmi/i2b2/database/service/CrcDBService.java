@@ -18,6 +18,7 @@
  */
 package edu.pitt.dbmi.i2b2.database.service;
 
+import edu.pitt.dbmi.i2b2.database.Delimiters;
 import edu.pitt.dbmi.i2b2.database.util.DateFormatters;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -48,12 +49,8 @@ public class CrcDBService extends AbstractDBService {
     }
 
     public void insertIntoObservationFactTable(Path file) throws SQLException, IOException {
-        batchInsertIntoTable(
-                crcJdbcTemplate.getDataSource(),
-                OBSERVATION_FACT_TABLE,
-                file,
-                DEFAULT_BATCH_SIZE,
-                DateFormatters.OBSERVATION_FACTS_DATE_FORMATTER);
+        batchInsert(crcJdbcTemplate, OBSERVATION_FACT_TABLE, DEFAULT_BATCH_SIZE,
+                file, Delimiters.TAB, DateFormatters.OBSERVATION_FACTS_DATE_FORMATTER);
     }
 
 }

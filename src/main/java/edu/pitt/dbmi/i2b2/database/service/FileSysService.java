@@ -22,13 +22,18 @@ import edu.pitt.dbmi.i2b2.database.Delimiters;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -49,6 +54,70 @@ public class FileSysService {
     @Autowired
     public FileSysService(ResourcePatternResolver resourcePatternResolver) {
         this.resourcePatternResolver = resourcePatternResolver;
+    }
+
+    public void mergeMetadataFiles(Path metadataDir) {
+        Set<String> lines = new LinkedHashSet<>();
+        List<Path> metadataFiles = getMetadataFiles(metadataDir);
+        for (Path metadataFile : metadataFiles) {
+            try (BufferedReader reader = Files.newBufferedReader(metadataFile)) {
+                reader.readLine();  // skip header
+                for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                    // skip blank line
+                    if (line.trim().isEmpty()) {
+                        continue;
+                    }
+
+                    lines.add(line);
+                }
+            } catch (IOException exception) {
+                exception.printStackTrace(System.err);
+            }
+        }
+
+        Path outputFile = Paths.get("/home", "kvb2", "shared", "tmp", "metadata.tsv");
+        try (PrintStream writer = new PrintStream(Files.newOutputStream(outputFile, StandardOpenOption.CREATE))) {
+            lines.forEach(writer::println);
+        } catch (IOException exception) {
+            exception.printStackTrace(System.err);
+        }
+    }
+
+    public void mergeMetadataFiles2(Path metadataDir) {
+        List<Path> metadataFiles = getMetadataFiles(metadataDir);
+        Path outputFile = Paths.get("/home", "kvb2", "shared", "tmp", "metadata.tsv");
+        try (PrintStream writer = new PrintStream(Files.newOutputStream(outputFile, StandardOpenOption.CREATE))) {
+            for (Path metadataFile : metadataFiles) {
+                try (BufferedReader reader = Files.newBufferedReader(metadataFile)) {
+                    // skip header
+                    reader.readLine();
+
+                    for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                        // skip blank line
+                        if (line.trim().isEmpty()) {
+                            continue;
+                        }
+
+                        writer.println(line);
+                    }
+                }
+            }
+        } catch (IOException exception) {
+            exception.printStackTrace(System.err);
+        }
+    }
+
+    public List<Path> getMetadataFiles(Path metadataFileDir) {
+        try {
+            return Files.list(metadataFileDir)
+                    .filter(Files::isRegularFile)
+                    .sorted()
+                    .collect(Collectors.toList());
+        } catch (IOException exception) {
+            exception.printStackTrace(System.err);
+        }
+
+        return Collections.EMPTY_LIST;
     }
 
     public String getResourceFileContents(Path file) throws IOException {

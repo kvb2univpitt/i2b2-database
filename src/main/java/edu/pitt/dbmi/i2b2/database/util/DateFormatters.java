@@ -30,7 +30,7 @@ import java.text.SimpleDateFormat;
 public final class DateFormatters {
 
     public static final DateFormat OBSERVATION_FACTS_DATE_FORMATTER = new SimpleDateFormat("dd-MMM-yy");
-    public static final DateFormat METADATA_DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.000");
+    public static final DateFormat METADATA_DATE_FORMATTER = new SimpleDateFormat("yyyy-MM-dd");
 
     private DateFormatters() {
     }
